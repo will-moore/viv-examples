@@ -1,20 +1,19 @@
+
+// based on example at https://deck.gl/examples/tile-layer-non-geospatial/
+// https://github.com/visgl/deck.gl/blob/a0aa5a5d82d7b7c79dd0e45bd0e8daf6842ac19a/examples/website/image-tile/app.js
+
 /* global fetch, DOMParser */
 import React, {useState, useEffect} from 'react';
-import {render} from 'react-dom';
 
 import DeckGL, {OrthographicView, COORDINATE_SYSTEM} from 'deck.gl';
 import {TileLayer} from '@deck.gl/geo-layers';
 import {BitmapLayer} from '@deck.gl/layers';
-import {load} from '@loaders.gl/core';
 import {clamp} from '@math.gl/core';
 
-const INITIAL_VIEW_STATE = {
-  target: [13000, 13000, 0],
-  zoom: -7
-};
+import {openArray} from "zarr";
+import {loadRegion, renderTo8bitArray, randomLut} from "./util";
 
-const ROOT_URL =
-  'https://raw.githubusercontent.com/visgl/deck.gl-data/master/website/image-tiles/moon.image';
+const source = "https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.4/idr0062A/6001240.zarr/labels/0";
 
 function getTooltip({tile, bitmap}) {
   if (tile && bitmap) {
@@ -26,28 +25,52 @@ function getTooltip({tile, bitmap}) {
   return null;
 }
 
+async function loadTile({bbox}) {
+  let {top, left, right, bottom} = bbox;
+  // get dataset index from x
+  let datasetIndex = 0;
+  const store = await openArray({store: source + `/${datasetIndex}`});
+  // get shape etc.
+  // [1,1,1,"0:100", "0:100"]
+  let zIndex = 100;
+  const plane = await loadRegion(store, [0, zIndex, `${top}:${bottom}`, `${left}:${right}`]);
+  let width = plane.shape[1];
+  let height = plane.shape[0];
+  
+  const rgb = renderTo8bitArray([plane], [randomLut], [[0, 50]]);
+  return new ImageData(rgb, width, height);
+}
+
 export default function App({autoHighlight = true, onTilesLoad}) {
   const [dimensions, setDimensions] = useState(null);
 
   useEffect(() => {
     const getMetaData = async () => {
-      const dziSource = `${ROOT_URL}/moon.image.dzi`;
-      const response = await fetch(dziSource);
-      const xmlText = await response.text();
-      const dziXML = new DOMParser().parseFromString(xmlText, 'text/xml');
+      const zattrs = await fetch(source + "/.zattrs").then(rsp => rsp.json());
+      console.log('zattrs', zattrs);
+      // assume a single multiscales
+      const datasets = zattrs.multiscales[0].datasets;
+      const stores = await Promise.all(datasets.map(async d => openArray({ store: source + "/" + d.path })));
+      const shape = stores[0].shape;
+      console.log('shape', shape);
 
-      if (Number(dziXML.getElementsByTagName('Image')[0].attributes.Overlap.value) !== 0) {
-        // eslint-disable-next-line no-undef, no-console
-        console.warn('Overlap parameter is nonzero and should be 0');
-      }
       setDimensions({
-        height: Number(dziXML.getElementsByTagName('Size')[0].attributes.Height.value),
-        width: Number(dziXML.getElementsByTagName('Size')[0].attributes.Width.value),
-        tileSize: Number(dziXML.getElementsByTagName('Image')[0].attributes.TileSize.value)
+        height: shape[shape.length - 2],
+        width: shape[shape.length - 1],
+        tileSize: 100
       });
     };
     getMetaData();
   }, []);
+
+  let initialViewState = {
+    target: [0, 0, 0],
+    zoom: 0
+  };
+
+  if (dimensions) {
+    initialViewState.target = [dimensions.width / 2, dimensions.height/ 2, 0]
+  }
 
   const tileLayer =
     dimensions &&
@@ -56,14 +79,11 @@ export default function App({autoHighlight = true, onTilesLoad}) {
       tileSize: dimensions.tileSize,
       autoHighlight,
       highlightColor: [60, 60, 60, 100],
-      minZoom: -7,
+      minZoom: 0,
       maxZoom: 0,
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       extent: [0, 0, dimensions.width, dimensions.height],
-      getTileData: ({index}) => {
-        const {x, y, z} = index;
-        return load(`${ROOT_URL}/moon.image_files/${15 + z}/${x}_${y}.jpeg`);
-      },
+      getTileData: loadTile,
       onViewportLoad: onTilesLoad,
 
       renderSubLayers: props => {
@@ -84,11 +104,12 @@ export default function App({autoHighlight = true, onTilesLoad}) {
       }
     });
 
+
   return (
     <DeckGL
       views={[new OrthographicView({id: 'ortho'})]}
       layers={[tileLayer]}
-      initialViewState={INITIAL_VIEW_STATE}
+      initialViewState={initialViewState}
       controller={true}
       getTooltip={getTooltip}
     />
