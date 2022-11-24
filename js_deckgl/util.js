@@ -49,7 +49,7 @@ async function normalizeStore(source) {
     throw Error('Multiscales metadata included a path to a group.');
   }
   
-  function getNgffAxes(multiscales) {
+  export function getNgffAxes(multiscales) {
     // Returns axes in the latest v0.4+ format.
     // defaults for v0.1 & v0.2
     const default_axes = [
@@ -95,6 +95,14 @@ async function normalizeStore(source) {
     // Needs to be a power of 2 for deck.gl
     return 2 ** Math.floor(Math.log2(size));
   }
+
+  export function hexToRGB(hex) {
+    if (hex.startsWith('#')) hex = hex.slice(1);
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return [r, g, b];
+  }
   
   function parseOmeroMeta({ rdefs, channels, name }, axes) {
     const t = rdefs.defaultT ?? 0;
@@ -106,7 +114,7 @@ async function normalizeStore(source) {
     const names = [];
   
     channels.forEach((c, index) => {
-      colors.push(c.color);
+      colors.push(hexToRGB(c.color));
       contrast_limits.push([c.window.start, c.window.end]);
       visibilities.push(c.active);
       names.push(c.label || '' + index);
@@ -123,8 +131,8 @@ async function normalizeStore(source) {
       name,
       names,
       colors,
-      contrast_limits,
-      visibilities,
+      contrastLimits: contrast_limits,
+      channelsVisible: visibilities,
       channel_axis,
       defaultSelection,
     };
@@ -142,12 +150,6 @@ async function normalizeStore(source) {
     return {
       loader: loader,
       axis_labels,
-      // model_matrix: parseMatrix(config.model_matrix),
-      defaults: {
-        selection: meta.defaultSelection,
-        colormap,
-        opacity,
-      },
       ...meta,
       name: meta.name ?? name,
     };
