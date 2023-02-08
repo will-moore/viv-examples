@@ -1,8 +1,6 @@
 
 # Vanilla JS and Deck.gl example with OME-NGFF image
 
-NB: currently not loading chunks or displaying the image.
-
 To run...
 
 ```
