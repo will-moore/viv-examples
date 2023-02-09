@@ -1,5 +1,5 @@
 
-# Vanilla JS and Deck.gl example with OME-NGFF image
+# Vanilla JS with viv and Deck.gl example with OME-NGFF image
 
 To run...
 

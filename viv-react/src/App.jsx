@@ -6,6 +6,7 @@ import {OrthographicView} from '@deck.gl/core';
 import { MultiscaleImageLayer } from '@vivjs/layers';
 
 import {loadOmeroMultiscales, open, getNgffAxes} from "./util";
+import { bytesToRoi } from './IjRoi';
 
 
 // DeckGL react component
@@ -19,6 +20,18 @@ export default function App() {
   React.useEffect(() => {
 
     const fn = async function() {
+
+      const roiUrl = "http://localhost:8000/example.roi";
+      fetch(roiUrl)
+      .then(response => response.arrayBuffer())
+      .then(buffer => {
+        console.log("buffer", buffer);
+        // bytesToRoi(buffer);
+        let int16array = new Int16Array(buffer);
+        let int8array = new Int8Array(buffer);
+        console.log('int16array', int16array);
+        console.log('int8array', int8array);
+      });
 
       const node = await open(config.source);
       
