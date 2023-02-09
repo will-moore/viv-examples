@@ -1,10 +1,7 @@
 /// app.js
 import React from "react";
-import DeckGL from "@deck.gl/react";
 
-import { OrthographicView } from "@deck.gl/core";
-import { MultiscaleImageLayer } from "@vivjs/layers";
-
+import Viewer from "./Viewer";
 import { loadOmeroMultiscales, open, getNgffAxes, fitBounds } from "./util";
 
 // DeckGL react component
@@ -15,19 +12,6 @@ export default function App() {
   };
 
   const [layers, setLayers] = React.useState([]);
-
-  const [viewState, setViewState] = React.useState({
-    target: [0, 0, 0],
-    rotationX: 0,
-    zoom: 1,
-  });
-
-  const deckRef = React.useRef(null);
-
-  const onViewStateChange = React.useCallback(({ viewState }) => {
-    // Save the view state and trigger rerender
-    setViewState(viewState);
-  }, []);
 
   React.useEffect(() => {
     const fn = async function () {
@@ -42,24 +26,6 @@ export default function App() {
 
       let shape = layerData.loader[0]._data.meta.shape;
       const [height, width] = shape.slice(-2);
-
-      const { deck } = deckRef.current;
-      let targetWidth = deck.width;
-      let targetHeight = deck.height;
-      let padding = 0;
-      // zoom: 0 maps one unit distance to one pixel on screen, and increasing zoom
-      // by 1 scales the same object to twice as large
-      // limit initial zoom to 100%
-      let maxZoom = 0;
-
-      let bounds = fitBounds(
-        [width, height],
-        [targetWidth, targetHeight],
-        maxZoom,
-        padding
-      );
-
-      setViewState(bounds);
 
       let selections = [];
       layerData.channelsVisible.forEach((visible, chIndex) => {
@@ -78,7 +44,7 @@ export default function App() {
 
       layerData.selections = selections;
 
-      setLayers([new MultiscaleImageLayer(layerData)]);
+      setLayers([layerData]);
     };
 
     fn();
@@ -94,14 +60,7 @@ export default function App() {
 
   return (
     <div style={wrapperStyle}>
-      <DeckGL
-        ref={deckRef}
-        onViewStateChange={onViewStateChange}
-        controller={true}
-        viewState={viewState}
-        views={[new OrthographicView({ id: "ortho", controller: true })]}
-        layers={layers}
-      />
+      <Viewer layersData={layers} />
     </div>
   );
 }
