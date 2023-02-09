@@ -145,9 +145,22 @@ function parseOmeroMeta({ rdefs, channels, name }, axes) {
   };
 }
 
+// Scales the real image size to the target viewport.
+export function fitBounds(
+  [width, height],
+  [targetWidth, targetHeight],
+  maxZoom,
+  padding
+) {
+  const scaleX = (targetWidth - padding * 2) / width;
+  const scaleY = (targetHeight - padding * 2) / height;
+  const zoom = Math.min(maxZoom, Math.log2(Math.min(scaleX, scaleY)));
+  return { zoom, target: [width / 2, height / 2] };
+}
+
 export async function loadOmeroMultiscales(config, zarrGroup, attrs) {
   const { name, opacity = 1, colormap = "" } = config;
-  const data = await loadMultiscales(zarrGroup, attrs.multiscales);
+  let data = await loadMultiscales(zarrGroup, attrs.multiscales);
   const axes = getNgffAxes(attrs.multiscales);
   const axis_labels = getNgffAxisLabels(axes);
   const meta = parseOmeroMeta(attrs.omero, axes);
